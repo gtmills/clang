@@ -8653,9 +8653,17 @@ public:
                                     NamedDeclSetType &SameDirectiveDecls);
   /// Check declaration inside target region.
   void checkDeclIsAllowedInOpenMPTarget(Expr *E, Decl *D);
-  /// Return true inside OpenMP target region.
+  /// Return true inside OpenMP declare target region.
   bool isInOpenMPDeclareTargetContext() const {
     return IsInOpenMPDeclareTargetContext;
+  }
+  /// Return true inside OpenMP target region.
+  bool isInOpenMPTargetExecutionDirective() const;
+  /// Return true if (un)supported features for the current target should be
+  /// diagnosed if OpenMP (offloading) is enabled.
+  bool shouldDiagnoseTargetSupportFromOpenMP() const {
+    return !getLangOpts().OpenMPIsDevice || isInOpenMPDeclareTargetContext() ||
+      isInOpenMPTargetExecutionDirective();
   }
 
   /// Return the number of captured regions created for an OpenMP directive.
@@ -9690,7 +9698,6 @@ public:
   class ConditionResult {
     Decl *ConditionVar;
     FullExprArg Condition;
-    SourceLocation RParenLoc;
     bool Invalid;
     bool HasKnownValue;
     bool KnownValue;
@@ -9714,9 +9721,6 @@ public:
       return std::make_pair(cast_or_null<VarDecl>(ConditionVar),
                             Condition.get());
     }
-
-    void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
-
     llvm::Optional<bool> getKnownValue() const {
       if (!HasKnownValue)
         return None;

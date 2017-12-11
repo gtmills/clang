@@ -27,6 +27,8 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/TargetRegistry.h"
 
@@ -79,6 +81,12 @@ ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
     getFilePaths().push_back(CandidateLibPath);
 }
 
+void ToolChain::setTripleEnvironment(llvm::Triple::EnvironmentType Env) {
+  Triple.setEnvironment(Env);
+  if (EffectiveTriple != llvm::Triple())
+    EffectiveTriple.setEnvironment(Env);
+}
+
 ToolChain::~ToolChain() {
 }
 
@@ -88,6 +96,10 @@ bool ToolChain::useIntegratedAs() const {
   return Args.hasFlag(options::OPT_fintegrated_as,
                       options::OPT_fno_integrated_as,
                       IsIntegratedAssemblerDefault());
+}
+
+bool ToolChain::useRelaxRelocations() const {
+  return ENABLE_X86_RELAX_RELOCATIONS;
 }
 
 const SanitizerArgs& ToolChain::getSanitizerArgs() const {
@@ -213,6 +225,10 @@ StringRef ToolChain::getDefaultUniversalArchName() const {
   default:
     return Triple.getArchName();
   }
+}
+
+std::string ToolChain::getInputFilename(const InputInfo &Input) const {
+  return Input.getFilename();
 }
 
 bool ToolChain::IsUnwindTablesDefault(const ArgList &Args) const {
@@ -439,6 +455,13 @@ bool ToolChain::isCrossCompiling() const {
 ObjCRuntime ToolChain::getDefaultObjCRuntime(bool isNonFragile) const {
   return ObjCRuntime(isNonFragile ? ObjCRuntime::GNUstep : ObjCRuntime::GCC,
                      VersionTuple());
+}
+
+llvm::ExceptionHandling
+ToolChain::GetExceptionModel(const llvm::opt::ArgList &Args) const {
+  if (Triple.isOSWindows() && Triple.getArch() != llvm::Triple::x86)
+    return llvm::ExceptionHandling::WinEH;
+  return llvm::ExceptionHandling::None;
 }
 
 bool ToolChain::isThreadModelSupported(const StringRef Model) const {
